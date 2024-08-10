@@ -10,6 +10,11 @@
 - **Simple Integration:** Easily integrate with existing React tables.
 - **Drag and Drop:** Optionally highlight rows while dragging with `isDragAndDrop`  prop.
 
+## Demo
+
+Watch the demo of the draggable table row feature below:
+
+![Watch the demo](https://github.com/Pankajkumar34/draggable-table-row/raw/master/demo_drag_drop.gif)
 
 ## Installation
 
