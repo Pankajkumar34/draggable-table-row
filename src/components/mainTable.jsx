@@ -26,6 +26,11 @@ const MainTable = ({ data=[], children, setStateFun, tableClass, tableDivClass, 
     });
 
     useEffect(() => {
+        if (!data || data.length === 0) {
+            console.warn("No data available or data is null.");
+            return;
+        }
+
         const storedIndexes = JSON.parse(localStorage.getItem('tableOrderIndexes')) || [];
         const dragIndexData = JSON.parse(localStorage.getItem('DragIndex')) || [];
 
@@ -34,7 +39,7 @@ const MainTable = ({ data=[], children, setStateFun, tableClass, tableDivClass, 
             return acc;
         }, {});
 
-        const orderedFiles = (data || [])
+        const orderedFiles = data
             .map(item => {
                 const targetIndex = indexMap[item?._id] !== undefined ? indexMap[item._id] : storedIndexes?.indexOf(item?._id);
                 return {
@@ -91,7 +96,7 @@ const MainTable = ({ data=[], children, setStateFun, tableClass, tableDivClass, 
 
     return (
         <div
-            ref={isDragAndDrop === true ? drop : null}
+            ref={isDragAndDrop==="true" ? drop : null}
             className={`dragTable ${tableDivClass}`}
             style={{
                 padding: isOverCss?.padding,
@@ -103,17 +108,6 @@ const MainTable = ({ data=[], children, setStateFun, tableClass, tableDivClass, 
             </table>
         </div>
     );
-};
-
-
-MainTable.propTypes = {
-    children: PropTypes.node.isRequired,
-    setStateFun: PropTypes.func.isRequired,
-    tableClass: PropTypes.string,
-    tableDivClass: PropTypes.string,
-    isOverCss: PropTypes.object,
-    dataLength: PropTypes.number.isRequired,
-    isDragAndDrop: PropTypes.string,
 };
 
 export default MainTable;
