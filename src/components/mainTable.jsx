@@ -13,8 +13,10 @@ import { useDrop } from "react-dnd";
  * @param {number} props.dataLength - The length of the data array to calculate target index during drag-and-drop.
  */
 
-const MainTable = ({ data, children, setStateFun, tableClass, tableDivClass, isOverCss, isDragAndDrop, dataLength }) => {
+const MainTable = ({ data=[], children, setStateFun, tableClass, tableDivClass, isOverCss, isDragAndDrop, dataLength }) => {
     const [initialLoad, setInitialLoad] = useState(true);
+    const prevDataRef = useRef();
+
     const [{ isOver }, drop] = useDrop({
         accept: "ITEM_TYPE",
         drop: (item, monitor) => handleDrop(item, monitor),
@@ -23,27 +25,25 @@ const MainTable = ({ data, children, setStateFun, tableClass, tableDivClass, isO
         }),
     });
 
-    // Ref to store previous data
-    const prevDataRef = useRef();
     useEffect(() => {
         const storedIndexes = JSON.parse(localStorage.getItem('tableOrderIndexes')) || [];
         const dragIndexData = JSON.parse(localStorage.getItem('DragIndex')) || [];
 
-            const indexMap = dragIndexData.reduce((acc, cur) => {
+        const indexMap = dragIndexData.reduce((acc, cur) => {
             acc[cur?.id] = cur?.targetIndex;
             return acc;
         }, {});
-    
-        const orderedFiles = data
+
+        const orderedFiles = (data || [])
             .map(item => {
                 const targetIndex = indexMap[item?._id] !== undefined ? indexMap[item._id] : storedIndexes?.indexOf(item?._id);
                 return {
                     ...item,
-                    targetIndex: targetIndex >= 0 ? targetIndex : data?.indexOf(item)
+                    targetIndex: targetIndex >= 0 ? targetIndex : (data?.indexOf(item) || 0)
                 };
             })
             .sort((a, b) => a?.targetIndex - b?.targetIndex);
-    
+
         if (initialLoad) {
             setStateFun(orderedFiles);
             setInitialLoad(false);
@@ -53,9 +53,10 @@ const MainTable = ({ data, children, setStateFun, tableClass, tableDivClass, isO
                 setStateFun(orderedFiles);
             }
         }
+
         prevDataRef.current = orderedFiles;
     }, [data, initialLoad, setStateFun]);
-    
+
     const handleDrop = (item, monitor) => {
         const { originalIndex, id } = item;
         const clientOffset = monitor.getClientOffset();
@@ -63,26 +64,25 @@ const MainTable = ({ data, children, setStateFun, tableClass, tableDivClass, isO
         if (targetIndex === null || targetIndex === undefined || targetIndex < 0) {
             return;
         }
-    
+
         let DragIndexData = JSON.parse(localStorage.getItem('DragIndex')) || [];
-
         DragIndexData = DragIndexData.filter(data => data?.id !== id);
-
         DragIndexData.push({ ...item, targetIndex: targetIndex - 1 });
         localStorage.setItem('DragIndex', JSON.stringify(DragIndexData));
+
         setStateFun(prevFiles => {
             const updatedFiles = [...prevFiles];
-            const [movedItem] = updatedFiles?.splice(originalIndex, 1);
+            const [movedItem] = updatedFiles.splice(originalIndex, 1);
             updatedFiles.splice(targetIndex, 0, movedItem);
             const newIndexes = updatedFiles.map(item => item?._id);
             localStorage.setItem('tableOrderIndexes', JSON.stringify(newIndexes));
             return updatedFiles;
         });
     };
-    
 
     const getTargetIndex = (clientOffset) => {
-        const rect = document.querySelector(".dragTable").getBoundingClientRect();
+        const rect = document.querySelector(".dragTable")?.getBoundingClientRect();
+        if (!rect) return null;
         const itemHeight = rect.height / dataLength;
         const dropY = clientOffset.y - rect.top;
         const targetIndex = Math.floor(dropY / itemHeight);
@@ -91,7 +91,7 @@ const MainTable = ({ data, children, setStateFun, tableClass, tableDivClass, isO
 
     return (
         <div
-            ref={isDragAndDrop === "true" ? drop : null}
+            ref={isDragAndDrop === true ? drop : null}
             className={`dragTable ${tableDivClass}`}
             style={{
                 padding: isOverCss?.padding,
@@ -112,8 +112,8 @@ MainTable.propTypes = {
     tableClass: PropTypes.string,
     tableDivClass: PropTypes.string,
     isOverCss: PropTypes.object,
-    isDragAndDrop: PropTypes.bool.isRequired,
     dataLength: PropTypes.number.isRequired,
+    isDragAndDrop: PropTypes.string,
 };
 
 export default MainTable;
