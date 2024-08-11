@@ -1,9 +1,9 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect,useState } from 'react';
 import PropTypes from 'prop-types';
 import { useDrop } from "react-dnd";
 /**
- * @param {Object} props - The props object.
+ * @param {Array} props.data - all table data.
  * @param {React.ReactNode} props.children - The child elements to be rendered inside the table.
  * @param {Function} props.setStateFun - The function to update the state for drag-and-drop data.
  * @param {string} [props.tableClass] - Custom CSS class for the table element.
@@ -13,7 +13,8 @@ import { useDrop } from "react-dnd";
  * @param {number} props.dataLength - The length of the data array to calculate target index during drag-and-drop.
  */
 
-const MainTable = ({ children,setStateFun, tableClass, tableDivClass, isOverCss,isDragAndDrop,dataLength }) => {
+const MainTable = ({ data, children, setStateFun, tableClass, tableDivClass, isOverCss, isDragAndDrop, dataLength }) => {
+    const [initialLoad, setInitialLoad] = useState(true);
     const [{ isOver }, drop] = useDrop({
         accept: "ITEM_TYPE",
         drop: (item, monitor) => handleDrop(item, monitor),
@@ -21,25 +22,64 @@ const MainTable = ({ children,setStateFun, tableClass, tableDivClass, isOverCss,
             isOver: monitor.isOver(),
         }),
     });
+
+    // Ref to store previous data
+    const prevDataRef = useRef();
     useEffect(() => {
-        const storedOrder = localStorage.getItem('tableOrder');
-        if (storedOrder) {
-            setStateFun(JSON.parse(storedOrder));
+        const storedIndexes = JSON.parse(localStorage.getItem('tableOrderIndexes')) || [];
+        const dragIndexData = JSON.parse(localStorage.getItem('DragIndex')) || [];
+
+            const indexMap = dragIndexData.reduce((acc, cur) => {
+            acc[cur?.id] = cur?.targetIndex;
+            return acc;
+        }, {});
+    
+        const orderedFiles = data
+            .map(item => {
+                const targetIndex = indexMap[item?._id] !== undefined ? indexMap[item._id] : storedIndexes?.indexOf(item?._id);
+                return {
+                    ...item,
+                    targetIndex: targetIndex >= 0 ? targetIndex : data?.indexOf(item)
+                };
+            })
+            .sort((a, b) => a?.targetIndex - b?.targetIndex);
+    
+        if (initialLoad) {
+            setStateFun(orderedFiles);
+            setInitialLoad(false);
+        } else {
+            const prevData = prevDataRef.current;
+            if (JSON.stringify(orderedFiles) !== JSON.stringify(prevData)) {
+                setStateFun(orderedFiles);
+            }
         }
-    }, [setStateFun]);
+        prevDataRef.current = orderedFiles;
+    }, [data, initialLoad, setStateFun]);
     
     const handleDrop = (item, monitor) => {
-        const { originalIndex } = item;
+        const { originalIndex, id } = item;
         const clientOffset = monitor.getClientOffset();
         const targetIndex = getTargetIndex(clientOffset);
-        setStateFun((prevFiles) => {
+        if (targetIndex === null || targetIndex === undefined || targetIndex < 0) {
+            return;
+        }
+    
+        let DragIndexData = JSON.parse(localStorage.getItem('DragIndex')) || [];
+
+        DragIndexData = DragIndexData.filter(data => data?.id !== id);
+
+        DragIndexData.push({ ...item, targetIndex: targetIndex - 1 });
+        localStorage.setItem('DragIndex', JSON.stringify(DragIndexData));
+        setStateFun(prevFiles => {
             const updatedFiles = [...prevFiles];
-            const [movedItem] = updatedFiles.splice(originalIndex, 1);
+            const [movedItem] = updatedFiles?.splice(originalIndex, 1);
             updatedFiles.splice(targetIndex, 0, movedItem);
-            localStorage.setItem('tableOrder', JSON.stringify(updatedFiles));
+            const newIndexes = updatedFiles.map(item => item?._id);
+            localStorage.setItem('tableOrderIndexes', JSON.stringify(newIndexes));
             return updatedFiles;
         });
     };
+    
 
     const getTargetIndex = (clientOffset) => {
         const rect = document.querySelector(".dragTable").getBoundingClientRect();
@@ -50,9 +90,8 @@ const MainTable = ({ children,setStateFun, tableClass, tableDivClass, isOverCss,
     };
 
     return (
- 
         <div
-            ref={isDragAndDrop==="true" ? drop :null}
+            ref={isDragAndDrop === "true" ? drop : null}
             className={`dragTable ${tableDivClass}`}
             style={{
                 padding: isOverCss?.padding,
@@ -63,7 +102,6 @@ const MainTable = ({ children,setStateFun, tableClass, tableDivClass, isOverCss,
                 {children}
             </table>
         </div>
-  
     );
 };
 
